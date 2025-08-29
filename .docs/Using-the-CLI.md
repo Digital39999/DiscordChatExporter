@@ -252,6 +252,38 @@ voice channels, use `--include-vc false`.
 ./DiscordChatExporter.Cli exportguild -t "mfa.Ifrn" -g 21814 --include-vc false
 ```
 
+#### Filtering channels and categories
+
+You can filter which channels are exported using several options:
+
+**Ignoring specific channels**
+Use `--ignore-channels` to exclude specific channel IDs from the export (comma-separated list):
+
+```console
+./DiscordChatExporter.Cli exportguild -t "mfa.Ifrn" -g 21814 --ignore-channels 12345,67890
+```
+
+**Ignoring entire categories**
+Use `--ignore-categories` to exclude all channels within specific category IDs (comma-separated list):
+
+```console
+./DiscordChatExporter.Cli exportguild -t "mfa.Ifrn" -g 21814 --ignore-categories 11111,22222
+```
+
+**Only exporting specific channels**
+Use `--only-channels` to export only the specified channel IDs. This overrides all ignore options:
+
+```console
+./DiscordChatExporter.Cli exportguild -t "mfa.Ifrn" -g 21814 --only-channels 12345,67890
+```
+
+**Only exporting channels from specific categories**
+Use `--only-categories` to export only channels from the specified category IDs. This overrides all ignore options:
+
+```console
+./DiscordChatExporter.Cli exportguild -t "mfa.Ifrn" -g 21814 --only-categories 11111,22222
+```
+
 ### Export all channels
 
 To export all accessible channels, use the `exportall` command:
@@ -260,12 +292,104 @@ To export all accessible channels, use the `exportall` command:
 ./DiscordChatExporter.Cli exportall -t "mfa.Ifrn"
 ```
 
-#### Excluding DMs
+#### Including/excluding channel types
 
-To exclude DMs, add the `--include-dm false` option.
+You can control which types of channels are included in the export:
+
+**Excluding DMs**
+To exclude direct message channels, use `--include-dm false`:
 
 ```console
 ./DiscordChatExporter.Cli exportall -t "mfa.Ifrn" --include-dm false
+```
+
+**Excluding server channels**
+To exclude server channels, use `--include-guilds false`:
+
+```console
+./DiscordChatExporter.Cli exportall -t "mfa.Ifrn" --include-guilds false
+```
+
+**Excluding voice channels**
+To exclude voice channels, use `--include-vc false`:
+
+```console
+./DiscordChatExporter.Cli exportall -t "mfa.Ifrn" --include-vc false
+```
+
+#### Filtering servers, channels, and categories
+
+You can apply various filters when exporting all channels:
+
+**Ignoring specific servers**
+Use `--ignore-guilds` to exclude entire servers from the export (comma-separated list of server IDs):
+
+```console
+./DiscordChatExporter.Cli exportall -t "mfa.Ifrn" --ignore-guilds 11111,22222
+```
+
+**Only exporting from specific servers**
+Use `--only-guilds` to export only from the specified server IDs. This overrides the ignore-guilds option:
+
+```console
+./DiscordChatExporter.Cli exportall -t "mfa.Ifrn" --only-guilds 11111,22222
+```
+
+**Ignoring specific channels**
+Use `--ignore-channels` to exclude specific channel IDs across all servers (comma-separated list):
+
+```console
+./DiscordChatExporter.Cli exportall -t "mfa.Ifrn" --ignore-channels 12345,67890
+```
+
+**Ignoring entire categories**
+Use `--ignore-categories` to exclude all channels within specific category IDs across all servers (comma-separated list):
+
+```console
+./DiscordChatExporter.Cli exportall -t "mfa.Ifrn" --ignore-categories 33333,44444
+```
+
+#### Using data packages
+
+You can export based on a Discord data package (personal data export from Discord):
+
+```console
+./DiscordChatExporter.Cli exportall -t "mfa.Ifrn" --data-package "C:\path\to\package.zip"
+```
+
+When using a data package, only channels referenced in the dump will be exported, and the same filtering options apply.
+
+### Export direct messages
+
+To export all direct message channels, use the `exportdm` command:
+
+```console
+./DiscordChatExporter.Cli exportdm -t "mfa.Ifrn"
+```
+
+#### Filtering DM channels
+
+You can filter which DM channels are exported:
+
+**Ignoring specific DM channels**
+Use `--ignore-channels` to exclude specific DM channel IDs (comma-separated list):
+
+```console
+./DiscordChatExporter.Cli exportdm -t "mfa.Ifrn" --ignore-channels 12345,67890
+```
+
+**Only exporting specific DM channels**
+Use `--only-channels` to export only the specified DM channel IDs. This overrides the ignore option:
+
+```console
+./DiscordChatExporter.Cli exportdm -t "mfa.Ifrn" --only-channels 12345,67890
+```
+
+**Including/excluding group DMs**
+Use `--include-group-dm` to control whether group DM channels are included. By default, they are included:
+
+```console
+./DiscordChatExporter.Cli exportdm -t "mfa.Ifrn" --include-group-dm false
 ```
 
 ### List channels in a server

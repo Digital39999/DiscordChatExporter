@@ -6,6 +6,7 @@ using CliFx.Attributes;
 using CliFx.Infrastructure;
 using DiscordChatExporter.Cli.Commands.Base;
 using DiscordChatExporter.Cli.Utils.Extensions;
+using DiscordChatExporter.Core.Discord;
 using DiscordChatExporter.Core.Discord.Data;
 using DiscordChatExporter.Core.Discord.Dump;
 using DiscordChatExporter.Core.Exceptions;
@@ -32,18 +33,70 @@ public class ExportAllCommand : ExportCommandBase
     )]
     public string? DataPackageFilePath { get; init; }
 
+    [CommandOption("ignore-channels", Description = "Channel IDs to ignore (comma-separated).")]
+    public IReadOnlyList<Snowflake> IgnoredChannelIds { get; init; } = [];
+
+    [CommandOption("ignore-categories", Description = "Category IDs to ignore (comma-separated).")]
+    public IReadOnlyList<Snowflake> IgnoredCategoryIds { get; init; } = [];
+
+    [CommandOption("ignore-guilds", Description = "Server IDs to ignore (comma-separated).")]
+    public IReadOnlyList<Snowflake> IgnoredGuildIds { get; init; } = [];
+
+    [CommandOption(
+        "only-guilds",
+        Description = "Only export from these server IDs (comma-separated). Overrides ignore-guilds."
+    )]
+    public IReadOnlyList<Snowflake> OnlyGuildIds { get; init; } = [];
+
+    private bool ShouldIgnoreGuild(Guild guild)
+    {
+        if (OnlyGuildIds.Count > 0)
+        {
+            return !OnlyGuildIds.Contains(guild.Id);
+        }
+
+        return IgnoredGuildIds.Contains(guild.Id);
+    }
+
+    private bool ShouldIgnoreChannel(Channel channel)
+    {
+        // Check ignored channel IDs
+        if (IgnoredChannelIds.Contains(channel.Id))
+        {
+            return true;
+        }
+
+        // Check ignored categories
+        if (channel.Parent != null && IgnoredCategoryIds.Contains(channel.Parent.Id))
+        {
+            return true;
+        }
+
+        return false;
+    }
+
     public override async ValueTask ExecuteAsync(IConsole console)
     {
         await base.ExecuteAsync(console);
 
         var cancellationToken = console.RegisterCancellationHandler();
         var channels = new List<Channel>();
+        var ignoredChannels = new List<Channel>();
 
         // Pull from the API
         if (string.IsNullOrWhiteSpace(DataPackageFilePath))
         {
             await foreach (var guild in Discord.GetUserGuildsAsync(cancellationToken))
             {
+                // Check if guild should be ignored
+                if (ShouldIgnoreGuild(guild))
+                {
+                    await console.Output.WriteLineAsync(
+                        $"Ignoring server '{guild.Name}' based on filters."
+                    );
+                    continue;
+                }
+
                 // Regular channels
                 await console.Output.WriteLineAsync(
                     $"Fetching channels for server '{guild.Name}'..."
@@ -68,6 +121,16 @@ public class ExportAllCommand : ExportCommandBase
 
                                 if (!IncludeVoiceChannels && channel.IsVoice)
                                     continue;
+
+                                // Check channel-specific filters
+                                if (ShouldIgnoreChannel(channel))
+                                {
+                                    ignoredChannels.Add(channel);
+                                    ctx.Status(
+                                        Markup.Escape($"Ignored '{channel.GetHierarchicalName()}'.")
+                                    );
+                                    continue;
+                                }
 
                                 channels.Add(channel);
 
@@ -112,6 +175,16 @@ public class ExportAllCommand : ExportCommandBase
                                     cancellationToken
                                 );
 
+                                // Apply same filters to data package channels
+                                if (ShouldIgnoreChannel(channel))
+                                {
+                                    ignoredChannels.Add(channel);
+                                    ctx.Status(
+                                        Markup.Escape($"Ignored '{channel.GetHierarchicalName()}'.")
+                                    );
+                                    continue;
+                                }
+
                                 channels.Add(channel);
                             }
                             catch (DiscordChatExporterException)
@@ -122,7 +195,7 @@ public class ExportAllCommand : ExportCommandBase
                     }
                 );
 
-            await console.Output.WriteLineAsync($"Fetched {channels} channel(s).");
+            await console.Output.WriteLineAsync($"Fetched {channels.Count} channel(s).");
 
             // Print inaccessible channels
             if (inaccessibleChannels.Any())
@@ -143,13 +216,24 @@ public class ExportAllCommand : ExportCommandBase
             }
         }
 
-        // Filter out unwanted channels
+        var filteredOut = channels.Count;
         if (!IncludeDirectChannels)
             channels.RemoveAll(c => c.IsDirect);
         if (!IncludeGuildChannels)
             channels.RemoveAll(c => c.IsGuild);
         if (!IncludeVoiceChannels)
             channels.RemoveAll(c => c.IsVoice);
+
+        filteredOut -= channels.Count;
+
+        // Print summary of all filtering
+        if (ignoredChannels.Count > 0 || filteredOut > 0)
+        {
+            await console.Output.WriteLineAsync(
+                $"Total channels ignored: {ignoredChannels.Count + filteredOut} "
+                    + $"({ignoredChannels.Count} from filters, {filteredOut} from include settings)"
+            );
+        }
 
         await ExportAsync(console, channels);
     }
